@@ -2,7 +2,7 @@
 Capstone project completion for ITS 402
 \
 \
-the URL for the backend is: 
+the URL for the backend is: https://delivery-box.onrender.com
 \
-the URL for the web app is: 
+the URL for the web app is: [will be added later]
 
