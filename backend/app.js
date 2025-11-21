@@ -7,6 +7,8 @@ import cookieParser from "cookie-parser";
 import { dbConnectionString } from './config/db.js';
 
 import userRouters from './routers/user.router.js';
+import riderRouters from './routers/rider.router.js';
+import deviceRouters from './routers/device.router.js';
 
 const secretPath =
   fs.existsSync('/etc/secrets/.env')
@@ -32,6 +34,8 @@ app.use(cors({
 }));
 
 app.use("/api/users", userRouters);
+app.use("/api/devices", deviceRouters);
+app.use("/api/riders", riderRouters);
 
 app.get('/', (req, res) => {
   res.send('Delivery box server is running!');

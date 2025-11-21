@@ -1,5 +1,6 @@
 import User from '../models/user.model.js';
-//import Device from '../models/device.model.js';
+import Rider from '../models/rider.model.js';
+import Device from '../models/device.model.js';
 
 export const isUserEmailExisting = async (email, idToExcempt) =>{
     try{
@@ -18,7 +19,25 @@ export const isUserEmailExisting = async (email, idToExcempt) =>{
         throw(error);
     }
 }
-/*
+
+export const isRiderEmailExisting = async (email, idToExcempt) =>{
+    try{
+        const rider=await Rider.find({emailAddress: email});
+
+        if(!rider || rider.length<1){
+            return false;
+        }else if(idToExcempt == rider[0]._id){
+            return false;
+        }else{
+            return true;
+        }
+    }catch(error){
+        console.error("Error in checking existence of User email! - "+error.message);
+        error.message = "Server Error!\n"+error.message;
+        throw(error);
+    }
+}
+
 export const isDeviceIDExisting = async (devID) =>{
     try{
         const device=await Device.find({deviceID: devID});
@@ -34,7 +53,7 @@ export const isDeviceIDExisting = async (devID) =>{
         throw(error);
     }
 }
-*/
+
 
 export const isDateValid = async (stringInput) =>{
     if(typeof stringInput != 'string'){
