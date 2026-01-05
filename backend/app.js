@@ -1,30 +1,18 @@
 import express from 'express';
+import { dbConnection } from './config/db_access.js';
 import { config as dotenvConfig } from 'dotenv';
 import fs from 'fs';
-import cors from 'cors';
-import cookieParser from "cookie-parser";
-
-import { dbConnection } from './config/db.js';
-import regionsRouter from './routers/region.router.js';
-import provinceRouter from './routers/province.router.js';
-import municipalityRouter from './routers/municipality.router.js';
-import barangayRouter from './routers/barangay.router.js';
-import userRouter from './routers/user.router.js';
 import deviceRouter from './routers/device.router.js';
+import userRouter from './routers/user.router.js';
+import eventRouter from './routers/event.router.js';
+import checkOfflineDevices from './functions/checkOfflineDevices.js';
+import cors from 'cors';
+import cookieParser from 'cookie-parser';
 
-const secretPath =
-  fs.existsSync('/etc/secrets/.env')
-    ? '/etc/secrets/.env'
-    : './.env';
-
-dotenvConfig({ path: secretPath });
-
-const app=express();
-
-const PORT = process.env.PORT || 5000;
-
-app.use(cookieParser());
+const app = express();
 app.use(express.json());
+app.use(cookieParser());
+
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin || origin === "null")
@@ -35,17 +23,24 @@ app.use(cors({
   credentials: true
 }));
 
+const PORT = process.env.PORT || 5000;
+const secretPath =
+  fs.existsSync('/etc/secrets/.env')
+    ? '/etc/secrets/.env'
+    : './.env';
+
+dotenvConfig({ path: secretPath });
+
+app.use("/api/device", deviceRouter);
+app.use("/api/user", userRouter);
+app.use("/api/event", eventRouter);
 app.get("/", (req, res)=>{
     res.json({message: "Server is working!"})
 });
-app.use("/api/region", regionsRouter);
-app.use("/api/province", provinceRouter);
-app.use("/api/municipality", municipalityRouter);
-app.use("/api/barangay", barangayRouter);
-app.use("/api/user", userRouter);
-app.use("/api/device", deviceRouter);
 
-app.listen(PORT, ()=>{
+setInterval(checkOfflineDevices, 30000);
+
+app.listen(PORT, '0.0.0.0', ()=>{
     dbConnection();
     console.log("server started at http://localhost:"+PORT);
 });

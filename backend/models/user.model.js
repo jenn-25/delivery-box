@@ -26,10 +26,9 @@ const UserSchema = new mongoose.Schema({
         required: true,
         unique: true
     },
-    sendSmsNotification:{
-        type: Boolean,
-        required: true,
-        default: false
+    address:{
+        type: String,
+        required: true
     },
     resetOTP:{
         type: String,
@@ -38,34 +37,6 @@ const UserSchema = new mongoose.Schema({
     resetOTPExpire:{
         type: Number,
         default: 0
-    },
-    address:{
-        type: String,
-        required: false
-    },
-    region:{
-        type: mongoose.Types.ObjectId,
-        ref: 'Region',
-        required: true
-    },
-    province:{
-        type: mongoose.Types.ObjectId,
-        ref: 'Province',
-        required: true
-    },
-    municipality:{
-        type: mongoose.Types.ObjectId,
-        ref: 'Municipality',
-        required: true
-    },
-    barangay:{
-        type: mongoose.Types.ObjectId,
-        ref: 'Barangay',
-        required: true
-    },
-    profilePic:{
-        type: String,
-        default: ""
     }
 });
 

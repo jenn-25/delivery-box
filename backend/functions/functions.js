@@ -1,10 +1,6 @@
 import User from '../models/user.model.js';
 import Device from '../models/device.model.js';
-import mongoose from 'mongoose';
-import Barangay from '../models/barangay.model.js';
-import Municipality from '../models/municipality.model.js';
-import Province from '../models/province.model.js';
-import Region from '../models/region.model.js';
+import axiosInstance from '../config/axiosConfig.js';
 
 export const isUserEmailExisting = async (email, idToExcempt) =>{
     try{
@@ -24,9 +20,10 @@ export const isUserEmailExisting = async (email, idToExcempt) =>{
     }
 }
 
-export const isDeviceIDExisting = async (deviceID, idToExcempt) =>{
+
+export const isDeviceIDExisting = async (devID, idToExcempt) =>{
     try{
-        const device=await Device.find({"deviceID": deviceID});
+        const device=await Device.find({deviceID: devID});
 
         if(!device || device.length<1){
             return false;
@@ -75,43 +72,60 @@ export const isDateValid = async (stringInput) =>{
     return true;
 }
 
-export const isAddressValid = async (region, province, municipality, barangay ) =>{
-    if(!region || !mongoose.isValidObjectId(region)){
+export const isAddressValid = async(regCode, provCode, citymunCode, brgyCode) =>{
+    if(typeof regCode != 'number' || Number.isNaN(regCode)){
         return false;
     }
-    
-    if(!province || !mongoose.isValidObjectId(province)){
+
+    if(typeof provCode != 'number' || Number.isNaN(provCode)){
         return false;
     }
-    
-    if(!municipality || !mongoose.isValidObjectId(municipality)){
+
+    if(typeof citymunCode != 'number' || Number.isNaN(citymunCode)){
         return false;
     }
-    
-    if(!barangay || !mongoose.isValidObjectId(barangay)){
+
+    if(typeof brgyCode != 'number' || Number.isNaN(brgyCode)){
         return false;
     }
 
     try{
-        const barangayData = await Barangay.findById(barangay);
-        const municipalityData = await Municipality.findById(municipality);
-        const provinceData = await Province.findById(province);
-        const regionData = await Region.findById(region);
+        const params={"barangayID": brgyCode};
+        const result = await axiosInstance.post("/barangay/by-barangay-code", params, {withCredentials: true});
 
-        if(!barangay || !municipality || !province || !regionData){
+        if(!result.data.success || result.data.data.length<1){
             return false;
+        }else{
+            const brgyObj=result.data.data[0];
+
+            if(regCode !== brgyObj.regCode){
+                return false;
+            }
+
+            if(provCode !== brgyObj.provCode){
+                return false;
+            }
+
+            if(citymunCode !== brgyObj.citymunCode){
+                return false;
+            }
+
+            return true;
         }
-
-        if(barangayData.municipality_id != municipalityData.municipality_id || municipalityData.province_id != provinceData.province_id || provinceData.region_id !== regionData.region_id){
-
-            console.log("check");
-            return false;
-        }
-
     }catch(error){
-        console.error("Error in checking validity of address! - "+error.message);
+        console.error("Error trying to check if address is valid: ", error.message);
         return false;
     }
+}
 
-    return true;
+export const isTokenValid = async(token) =>{
+    if (!token) return false;
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        return !!decoded?.id;
+        
+    } catch (error) {
+        return false;
+    }
 }

@@ -2,9 +2,8 @@ import User from '../models/user.model.js';
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
-import { isUserEmailExisting, isAddressValid } from '../functions/functions.js';
-import { sendPasswordResetOTPEmail, sendNewPasswordEmail } from '../functions/emailService.js';
-
+import { isUserEmailExisting } from '../functions/functions.js';
+import { sendPasswordResetOTPEmail, sendNewPasswordEmail } from '../functions/emailHelper.js';
 
 export const register = async(req, res) =>{
     if(!req.body){
@@ -17,57 +16,49 @@ export const register = async(req, res) =>{
     const contactNum = req.body.contactNumber;
     const emailAdd = req.body.emailAddress;
     const add = req.body.address;
-    var sendSmsNotification = req.body.sendSmsNotification;
-    const region = req.body.region;
-    const province = req.body.province;
-    const municipality = req.body.municipality;
-    const barangay = req.body.barangay;
+    const password=req.body.password;
+    const confirmPassword=req.body.confirmPassword;
 
     if(!lName){
-        return res.status(200).json({success: false, message: "Please provide the your Last Name!"});
+        return res.status(200).json({success: false, message: "Please provide your Last Name!"});
     }else if(!fName){
-        return res.status(200).json({success: false, message: "Please provide the your First Name!"});
+        return res.status(200).json({success: false, message: "Please provide your First Name!"});
     }else if(!mName){
-        return res.status(200).json({success: false, message: "Please provide the your Middle Name!"});
+        return res.status(200).json({success: false, message: "Please provide your Middle Name!"});
     }
 
     if(!contactNum){
-        return res.status(200).json({success: false, message: "Please provide the your Contact Number!"});
+        return res.status(200).json({success: false, message: "Please provide your Contact Number!"});
     }
 
     if(!emailAdd){
-        return res.status(200).json({success: false, message: "Please provide the your Email Address!"});
+        return res.status(200).json({success: false, message: "Please provide your Email Address!"});
     }
 
-    if(!typeof(sendSmsNotification) == Boolean || !sendSmsNotification){
-        sendSmsNotification=false;
+    if(!password){
+        return res.status(200).json({success: false, message: "Please provide your Password!"});
     }
 
-    if(!region || !mongoose.isValidObjectId(region)){
-        return res.status(200).json({success: false, message: "Invalid Region!"});
+    if(!confirmPassword){
+        return res.status(200).json({success: false, message: "Passwords mismatched! Please confirm your Password again"});
     }
 
-    if(!province || !mongoose.isValidObjectId(province)){
-        return res.status(200).json({success: false, message: "Invalid Province!"});
+    if(contactNum.length < 10){
+        return res.status(200).json({success: false, message: "Invalid Contact Number!"});
     }
 
-    if(!municipality || !mongoose.isValidObjectId(municipality)){
-        return res.status(200).json({success: false, message: "Invalid Municipality!"});
+    if(password.length < 8){
+        return res.status(200).json({success: false, message: "Passwords must be atleast 8 characters in length"});
     }
 
-    if(!barangay || !mongoose.isValidObjectId(barangay)){
-        return res.status(200).json({success: false, message: "Invalid Barangay!"});
+    if(!add || add.length < 1){
+        return res.status(200).json({success: false, message: "Please provide your address!"});
     }
 
-    if(!await isAddressValid(region, province, municipality, barangay)){
-        return res.status(200).json({success: false, message: "Invalid Address!"});
-    }
-
-    //return res.status(200).json({success: true, message: "Ok"});
     const salt = Number (process.env.SALT || 10);
 
     const session = await mongoose.startSession();
-    
+
     try{
 
         if(await isUserEmailExisting(emailAdd)){
@@ -76,10 +67,10 @@ export const register = async(req, res) =>{
 
         session.startTransaction();
         
-        const pwd = Math.random().toString(36).slice(2, 12);
-        const hashedPassword = await bcrypt.hash(pwd, salt);
+        const hashedPassword = await bcrypt.hash(password, salt);
 
-        let user = new User();
+        const user = new User();
+
         user.password = hashedPassword;
         user.lastName=lName;
         user.firstName=fName;
@@ -87,26 +78,16 @@ export const register = async(req, res) =>{
         user.contactNumber=contactNum;
         user.emailAddress=emailAdd;
         user.address=add;
-        user.sendSmsNotification = sendSmsNotification;
-        user.region=region;
-        user.province=province;
-        user.municipality=municipality;
-        user.barangay=barangay;
         
         await user.save({session});
-        
-        await sendNewPasswordEmail(emailAdd, fName+" "+lName, pwd);
+
+
+        await sendNewPasswordEmail(emailAdd, fName+" "+lName);
         
         await session.commitTransaction();
-        user=user.toObject();
-
-        delete user.password;
-        delete user.resetOTP;
-        delete user.resetOTPExpire;
 
         res.status(200).json({success: true, data: [user]});
     }catch(error){
-        
         if(session.inTransaction()){
             await session.abortTransaction();
         }
@@ -115,116 +96,78 @@ export const register = async(req, res) =>{
     }finally{
         await session.endSession();
     }
-
+    
     return res;
 }
 
 export const update = async(req, res) =>{
     if(!req.body){
-        return res.status(200).json({success: false, message: "Invalid values!"});
+        return res.status(400).json({success: false, message: "Invalid values!"});
     }
 
-    const id = req.body._id;
+    const id=req.body._id;
+    const emailAddress =  req.body.emailAddress;
     const lName = req.body.lastName;
     const fName = req.body.firstName;
     const mName = req.body.middleName;
     const contactNum = req.body.contactNumber;
-    const emailAdd = req.body.emailAddress;
     const add = req.body.address;
-    var sendSmsNotification = req.body.sendSmsNotification;
-    const region = req.body.region;
-    const province = req.body.province;
-    const municipality = req.body.municipality;
-    const barangay = req.body.barangay;
 
-    if(!id || !mongoose.isValidObjectId(id)){
-        return res.status(200).json({success: false, message: "Invalid User DB ID!"});
+    if(!emailAddress){
+        return res.status(200).json({success: false, message: "Invalid Email Address!"});
     }
 
     if(!lName){
-        return res.status(200).json({success: false, message: "Please provide the your Last Name!"});
+        return res.status(200).json({success: false, message: "Please provide your Last Name!"});
     }else if(!fName){
-        return res.status(200).json({success: false, message: "Please provide the your First Name!"});
+        return res.status(200).json({success: false, message: "Please provide your First Name!"});
     }else if(!mName){
-        return res.status(200).json({success: false, message: "Please provide the your Middle Name!"});
+        return res.status(200).json({success: false, message: "Please provide your Middle Name!"});
     }
 
     if(!contactNum){
-        return res.status(200).json({success: false, message: "Please provide the your Contact Number!"});
+        return res.status(200).json({success: false, message: "Please provide your Contact Number!"});
+    }else if(contactNum.length<10){
+        return res.status(200).json({success: false, message: "Invalid Contact Number!"});
     }
 
-    if(!emailAdd){
-        return res.status(200).json({success: false, message: "Please provide the your Email Address!"});
+    if(!add || add.length < 1){
+        return res.status(200).json({success: false, message: "Please provide your address!"});
     }
 
-    if(!typeof(sendSmsNotification) == Boolean || !sendSmsNotification){
-        sendSmsNotification=false;
-    }
-
-    if(!region || !mongoose.isValidObjectId(region)){
-        return res.status(200).json({success: false, message: "Invalid Region!"});
-    }
-
-    if(!province || !mongoose.isValidObjectId(province)){
-        return res.status(200).json({success: false, message: "Invalid Province!"});
-    }
-
-    if(!municipality || !mongoose.isValidObjectId(municipality)){
-        return res.status(200).json({success: false, message: "Invalid Municipality!"});
-    }
-
-    if(!barangay || !mongoose.isValidObjectId(barangay)){
-        return res.status(200).json({success: false, message: "Invalid Barangay!"});
-    }
-
-    if(!await isAddressValid(region, province, municipality, barangay)){
-        return res.status(200).json({success: false, message: "Invalid Address!"});
+    if(!mongoose.Types.ObjectId.isValid(id)){
+        return res.status(200).json({success: false, message: "Invalid User Account ID!"});
     }
 
     const session = await mongoose.startSession();
-    
     try{
 
-        const user= await User.findById(id);
-        if(!user){
-            return res.status(200).json({success: false, message: "Please Login Properly!"});
+        const onRecordUser = await User.findById(id);
+        if(!onRecordUser){
+            return res.status(200).json({success: false, message: "Invalid User Account ID!"});
         }
 
-
-        if(await isUserEmailExisting(emailAdd, id)){
+        if(await isUserEmailExisting(emailAddress, id)){
             return res.status(200).json({success: false, message: "Email Address is already in use!"});
         }
 
         session.startTransaction();
-        
-        user.lastName=lName;
-        user.firstName=fName;
-        user.middleName=mName;
-        user.contactNumber=contactNum;
-        user.emailAddress=emailAdd;
-        user.address=add;
-        user.sendSmsNotification = sendSmsNotification;
-        user.region=region;
-        user.province=province;
-        user.municipality=municipality;
-        user.barangay=barangay;
-        
-        let updatedUser =await User.findByIdAndUpdate(id, user, {new:true, session});
-        //this convert the mongoose object into plain javascript object to delete the critical info later
-        updatedUser = updatedUser.toObject();
-        await session.commitTransaction();
 
-        delete updatedUser.password;
-        delete updatedUser.resetOTP;
-        delete updatedUser.resetOTPExpire;
+        onRecordUser.lastName=lName;
+        onRecordUser.firstName=fName;
+        onRecordUser.middleName=mName;
+        onRecordUser.contactNumber=contactNum;
+        onRecordUser.emailAddress=emailAddress;
+        onRecordUser.address=add;
+
+        const updatedUser =await User.findByIdAndUpdate(id, onRecordUser, {new:true, session});
+
+        await session.commitTransaction();
 
         res.status(200).json({success: true, data: [updatedUser]});
     }catch(error){
-        
-        if(session.inTransaction()){
-            await session.abortTransaction();
-        }
-        console.error("Error in User Account creation! - "+error.message);
+        await session.abortTransaction();
+        console.error("Error in User Account update! - "+error.message);
         res.status(500).json({success: false, message:"Server Error"});
     }finally{
         await session.endSession();
@@ -250,15 +193,15 @@ export const login = async (req, res) =>{
     }
 
     try{
-        const userData = await User.findOne({emailAddress});
+        const userData = await User.findOne({"emailAddress": emailAddress});
         if(!userData){
-            return res.status(200).json({success: false, message: "Invalid Email Address or Password!"});
+            return res.status(200).json({success: false, message: "Wrong Email Address or Password!"});
         }
 
         const correctPassword = await bcrypt.compare(password, userData.password);
 
         if(!correctPassword){
-            return res.status(200).json({success: false, message: "Invalid Email Address or Password!"});
+            return res.status(200).json({success: false, message: "Wrong Email Address or Password!"});
         }
 
         const token = jwt.sign({id: userData._id}, process.env.JWT_SECRET, {expiresIn: '7d'});
@@ -295,6 +238,101 @@ export const logout = async (req, res) =>{
     return res;
 }
 
+export const sendPasswordResetOTP = async (req, res) =>{
+    if(!req.body){
+        return res.status(200).json({success: false, message: "Invalid values!"});
+    }
+
+    const email = req.body.emailAddress;
+
+    if(!email){
+        return res.status(200).json({success: false, message: "Invalid email!"});
+    }
+
+    const session = await mongoose.startSession();
+    try{
+        const userData = await User.findOne({emailAddress: email});
+        if(!userData){
+            res.status(200).json({success: false, message: "No Account found with this email!"});
+        }else{
+            session.startTransaction();
+            const otp = String(Math.floor(100000 + Math.random() * 900000));
+
+            userData.resetOTP = otp;
+            userData.resetOTPExpire = Date.now() + 5 * 60 * 1000;
+
+            await User.findByIdAndUpdate(userData._id, userData, {new:true, session});
+
+            await sendPasswordResetOTPEmail(userData.emailAddress, userData.firstName+" "+userData.lastName, otp);
+
+            await session.commitTransaction();
+            res.status(200).json({success: true, message: "Password Reset OTP codes sent successfully!"});
+        }
+
+    }catch(error){
+        await session.abortTransaction();
+        console.error("Error in creating a Password reset OTP codes for User Account! - "+error.message);
+        res.status(500).json({success: false, message: error.message});
+    }finally{
+        await session.endSession();
+    }
+
+    return res;
+}
+
+export const resetPasswordWithOTP = async (req, res) =>{
+    if(!req.body){
+        return res.status(200).json({success: false, message: "Invalid values!"});
+    }
+
+    const emailAddress = req.body.emailAddress;
+    const otp = req.body.otp;
+    const newPassword =req.body.password;
+    const confirmNewPassword = req.body.confirmPassword;
+
+    if(!emailAddress){
+        return res.status(200).json({success: false, message: "Please fill-in your Email Address to reset password!"});
+    }else if(!otp){
+        return res.status(200).json({success: false, message: "Input the OTP codes to reset password!"});
+    }else if(!newPassword){
+        return res.status(200).json({success: false, message: "Please input your new password!"});
+    }else if(!confirmNewPassword){
+        return res.status(200).json({success: false, message: "Please confirm your password!"});
+    }else if(newPassword !== confirmNewPassword){
+        return res.status(200).json({success: false, message: "Passwords mismatched! Please confirm your password again."});
+    }else if(newPassword.length < 8){
+        return res.status(200).json({success: false, message: "Password must be atleast 8 characters in length."});
+    }
+
+    try{
+        const userData = await User.findOne({"emailAddress": emailAddress});
+
+        if(!userData){
+            res.status(200).json({success: false, message: "Account not found!"});
+        }else if(userData.resetOTP === "" || userData.resetOTP !== otp){
+            res.status(200).json({success: false, message: "Invalid OTP codes!"});
+        }else if(userData.resetOTPExpire <= Date.now()){
+            res.status(200).json({success: false, message: "OTP codes are already expired!"});
+        }else{
+            const salt = Number (process.env.SALT || 10);
+            const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+            userData.password = hashedPassword;
+            userData.resetOTP="";
+            userData.resetOTPExpire=0;
+            
+            await User.findByIdAndUpdate(userData._id, userData);
+
+            res.status(200).json({success: true, message: "Password reset successfully!"});
+        }
+
+    }catch(error){
+        res.status(500).json({success: false, message: error.message});
+    }
+
+    return res;
+}
+
 export const changePassword = async (req, res) =>{
     if(!req.body){
         return res.status(400).json({success: false, message: "Invalid values!"});
@@ -304,8 +342,8 @@ export const changePassword = async (req, res) =>{
     const confirmNewPassword=req.body.confirmPassword;
     const id = req.body._id;
 
-    if(!newPassword || newPassword.length < 10){
-        return res.status(404).json({success: false, message: "Invalid new password!"});
+    if(!newPassword || newPassword.length < 8){
+        return res.status(404).json({success: false, message: "Password should be atleast 8 characters in length"});
     }
     if(!confirmNewPassword){
         return res.status(404).json({success: false, message: "Please confirm new password!"});
@@ -315,7 +353,7 @@ export const changePassword = async (req, res) =>{
     }
 
     if(!id || !mongoose.isValidObjectId(id)){
-        return res.status(401).json({success: false, message: "Please Login Properly!"});
+        return res.status(401).json({success: false, message: "Invalid User Account ID!"});
     }
 
     const salt = Number (process.env.SALT || 10);
@@ -344,43 +382,27 @@ export const changePassword = async (req, res) =>{
     return res;
 }
 
-export const requestPasswordResetOTP = async (req, res) =>{
+export const getMyInfo = async(req, res) =>{
     if(!req.body){
-        return res.status(200).json({success: false, message: "Invalid values!"});
+        return res.status(400).json({success: false, message: "Invalid values!"});
     }
+    const id= req.body._id;
 
-    const email = req.body.emailAddress;
+    if(!id || !mongoose.isValidObjectId(id)){
+        return res.status(401).json({success: false, message: "Authentication failed!"});
+    } 
 
-    if(!email){
-        return res.status(200).json({success: false, message: "Invalid email!"});
-    }
-
-    const session = await mongoose.startSession();
     try{
-        const userData = await User.findOne({emailAddress: email});
-        if(!userData){
-            res.status(200).json({success: false, message: "No User Account found with this email!"});
-        }else{
-            session.startTransaction();
-            const otp = String(Math.floor(100000 + Math.random() * 900000));
-
-            userData.resetOTP = otp;
-            userData.resetOTPExpire = Date.now() + 5 * 60 * 1000;
-
-            await User.findByIdAndUpdate(userData._id, userData, {new:true, session});
-
-            await sendPasswordResetOTPEmail(userData.emailAddress, userData.firstName+" "+userData.lastName, otp);
-
-            await session.commitTransaction();
-            res.status(200).json({success: true, message: "Password Reset OTP codes sent successfully!"});
+        const personalInfo = await User.findById(id).select("-password -resetOTPExpire -resetOTP");
+        if(!personalInfo){
+            return res.status(401).json({success: false, message: "Authentication failed!"});
         }
 
+        res.status(200).json({success: true, data: [personalInfo]});
+
     }catch(error){
-        await session.abortTransaction();
-        console.error("Error in creating a Password reset OTP codes for User Account! - "+error.message);
-        res.status(500).json({success: false, message: error.message});
-    }finally{
-        await session.endSession();
+        console.log("Server Error! - "+error.message);
+        res.status(500).json({success: false, message: "Server Error!\n"+error.message});
     }
 
     return res;
@@ -391,17 +413,17 @@ export const isOTPCodesCorrect = async (req, res) =>{
         return res.status(400).json({success: false, message: "Invalid values!"});
     }
 
-    const email = req.body.emailAddress;
+    const emailAddress = req.body.emailAddress;
     const otp = req.body.otp;
     
-    if(!email){
-        return res.status(200).json({success: false, message: "Please provide your Email Address to reset password!"});
+    if(!emailAddress){
+        return res.status(200).json({success: false, message: "Please fill-in your Email Address to reset password!"});
     }else if(!otp){
         return res.status(200).json({success: false, message: "Input the OTP codes to reset password!"});
     }
 
     try{
-        const userData = await User.findOne({"emailAddress": email});
+        const userData = await User.findOne({"emailAddress": emailAddress});
 
         var output = {success: true, message: "OTP codes are valid!"};
 
@@ -422,59 +444,6 @@ export const isOTPCodesCorrect = async (req, res) =>{
     return res;
 }
 
-export const resetPasswordWithOTP = async (req, res) =>{
-    if(!req.body){
-        return res.status(200).json({success: false, message: "Invalid values!"});
-    }
-
-    const email = req.body.emailAddress;
-    const otp = req.body.otp;
-    const newPassword =req.body.password;
-    const confirmNewPassword = req.body.confirmPassword;
-
-    if(!email){
-        return res.status(200).json({success: false, message: "Please provide your Email Address to reset password!"});
-    }else if(!otp){
-        return res.status(200).json({success: false, message: "Input the OTP codes to reset password!"});
-    }else if(!newPassword){
-        return res.status(200).json({success: false, message: "Please input your new password!"});
-    }else if(newPassword.length<10){
-        return res.status(200).json({success: false, message: "Passwords should not be less than 10 characters in length!"});
-    }else if(!confirmNewPassword){
-        return res.status(200).json({success: false, message: "Please confirm your password!"});
-    }else if(newPassword !== confirmNewPassword){
-        return res.status(200).json({success: false, message: "Passwords mismatched! Please confirm your password again."});
-    }
-
-    try{
-        const userData = await User.findOne({"emailAddress": email});
-
-        if(!userData){
-            res.status(200).json({success: false, message: "User Account not found!"});
-        }else if(userData.resetOTP === "" || userData.resetOTP !== otp){
-            res.status(200).json({success: false, message: "Invalid OTP codes!"});
-        }else if(userData.resetOTPExpire <= Date.now()){
-            res.status(200).json({success: false, message: "OTP codes are already expired!"});
-        }else{
-            const salt = Number (process.env.SALT || 10);
-            const hashedPassword = await bcrypt.hash(newPassword, salt);
-
-            userData.password = hashedPassword;
-            userData.resetOTP="";
-            userData.resetOTPExpire=0;
-            
-            await User.findByIdAndUpdate(userData._id, userData);
-
-            res.status(200).json({success: true, message: "Password reset successfully!"});
-        }
-
-    }catch(error){
-        res.status(500).json({success: false, message: error.message});
-    }
-
-    return res;
-}
-
 export const validateMyPassword = async(req, res) =>{
     if(!req.body){
         return res.status(400).json({success: false, message: "Invalid values!"});
@@ -483,7 +452,7 @@ export const validateMyPassword = async(req, res) =>{
     const password=req.body.password;
 
     if(!id || !mongoose.isValidObjectId(id)){
-        return res.status(401).json({success: false, message: "Please Login properly!"});
+        return res.status(401).json({success: false, message: "Authentication failed!"});
     } 
 
     if(!password){
@@ -493,7 +462,7 @@ export const validateMyPassword = async(req, res) =>{
     try{
         const personalInfo = await User.findById(id).select("-resetOTPExpire -resetOTP");
         if(!personalInfo){
-            return res.status(401).json({success: false, message: "Please Login properly!"});
+            return res.status(401).json({success: false, message: "Authentication failed!"});
         }
 
         const correctPassword = await bcrypt.compare(password, personalInfo.password);
@@ -503,32 +472,6 @@ export const validateMyPassword = async(req, res) =>{
         }
 
         res.status(200).json({success: true, message:"Password Validated!"});
-
-    }catch(error){
-        console.log("Server Error! - "+error.message);
-        res.status(500).json({success: false, message: "Server Error!\n"+error.message});
-    }
-
-    return res;
-}
-
-export const getMyInfo = async(req, res) =>{
-    if(!req.body){
-        return res.status(400).json({success: false, message: "Invalid values!"});
-    }
-    const id= req.body._id;
-
-    if(!id || !mongoose.isValidObjectId(id)){
-        return res.status(401).json({success: false, message: "Please Login properly!"});
-    } 
-
-    try{
-        const personalInfo = await User.findById(id).select("-password -resetOTPExpire -resetOTP");
-        if(!personalInfo){
-            return res.status(401).json({success: false, message: "Please Login properly!"});
-        }
-
-        res.status(200).json({success: true, data: [personalInfo]});
 
     }catch(error){
         console.log("Server Error! - "+error.message);

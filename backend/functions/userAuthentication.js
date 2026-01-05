@@ -4,14 +4,14 @@ const userAuthentication = async(req, res, next) =>{
     const token = req.cookies.token;
 
     if(!token){
-        return res.status(401).json({success: false, message: "Please Login Properly!"});
+        return res.status(401).json({success: false, message: "Authentication failed!"});
     }
 
     try{
 
         const tokenData = jwt.verify(token, process.env.JWT_SECRET);
         if(!tokenData.id){
-            return res.status(401).json({success: false, message: "Please Login Properly!"});   
+            return res.status(401).json({success: false, message: "Authentication failed!"});   
         }
 
         if(!req.body){
